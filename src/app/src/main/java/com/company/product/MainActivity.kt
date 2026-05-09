@@ -4,8 +4,11 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
@@ -19,6 +22,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var tvLog: TextView
     private lateinit var scrollLog: ScrollView
     private lateinit var tvStatus: TextView
+    private lateinit var btnStop: Button
+    private var serviceStarted = false
 
     private val logListener = object : UiLogger.Listener {
         override fun onLogUpdated(logs: String) {
@@ -37,12 +42,13 @@ class MainActivity : ComponentActivity() {
         tvLog = findViewById(R.id.tvLog)
         scrollLog = findViewById(R.id.scrollLog)
         tvStatus = findViewById(R.id.tvStatus)
+        btnStop = findViewById(R.id.btnStop)
         findViewById<Button>(R.id.btnClear).setOnClickListener {
             UiLogger.clear()
         }
 
         UiLogger.addListener(logListener)
-        UiLogger.log("APP", "App démarrée")
+        UiLogger.log("APP", "App demarree")
 
         requestAllPermissions()
     }
@@ -50,6 +56,30 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         UiLogger.removeListener(logListener)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStopButton()
+    }
+
+    private fun updateStopButton() {
+        if (TelegramService.isRunning) {
+            btnStop.text = "Stop"
+            btnStop.setOnClickListener {
+                stopService(serviceIntent)
+                serviceStarted = false
+                tvStatus.text = "Arrete"
+                btnStop.isEnabled = false
+                UiLogger.log("APP", "Service arrete manuellement")
+            }
+        } else {
+            btnStop.text = "Start"
+            btnStop.setOnClickListener {
+                requestScreenCapture()
+            }
+        }
+        btnStop.isEnabled = true
     }
 
     private fun requestAllPermissions() {
@@ -114,12 +144,36 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startTelegramService() {
-        UiLogger.log("APP", "Démarrage du service Telegram...")
+        UiLogger.log("APP", "Demarrage du service Telegram...")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
         }
-        tvStatus.text = "En écoute..."
+        serviceStarted = true
+        tvStatus.text = "En ecoute..."
+        requestBatteryOptimizationExemption()
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            UiLogger.log("APP", "Demande exemption batterie...")
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            batteryOptimizationLauncher.launch(intent)
+        }
+    }
+
+    private val batteryOptimizationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (pm.isIgnoringBatteryOptimizations(packageName)) {
+            UiLogger.log("APP", "Battery optimization ignoree - service persiste en arriere-plan")
+        } else {
+            UiLogger.log("APP", "Battery optimization NON ignoree - le service peut etre tue par Doze")
+        }
     }
 }

@@ -52,14 +52,16 @@ class TelegramService : Service() {
 
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("TG Bot · ${deviceManager.deviceId}")
-            .setContentText("En ecoute...")
+            .setContentText("Connecte et en ecoute...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
         startPolling()
+        isRunning = true
         UiLogger.log("SRV", "Foreground service started")
         return START_STICKY
     }
@@ -71,6 +73,7 @@ class TelegramService : Service() {
         pollingJob?.cancel()
         scope.cancel()
         stopRecording()
+        isRunning = false
         super.onDestroy()
     }
 
@@ -681,10 +684,10 @@ class TelegramService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Telegram Bot",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "Service de connexion Telegram" }
+        val channel = NotificationChannel(
+            CHANNEL_ID, "Telegram Bot",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply { description = "Service de connexion Telegram" }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
@@ -693,5 +696,7 @@ class TelegramService : Service() {
     companion object {
         private const val CHANNEL_ID = "telegram_bot"
         private const val NOTIFICATION_ID = 420
+        var isRunning = false
+            private set
     }
 }
