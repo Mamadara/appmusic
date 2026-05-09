@@ -90,7 +90,7 @@ object TelegramBot {
         return post("sendMessage", body)
     }
 
-    fun editMessageReplyMarkup(chatId: Long, messageId: Long, replyMarkup: JSONObject): Boolean {
+    fun editMessageReplyMarkup(chatId: Long, messageId: Long, replyMarkup: JSONObject?): Boolean {
         val body = JSONObject().apply {
             put("chat_id", chatId)
             put("message_id", messageId)
