@@ -314,7 +314,7 @@ class TelegramService : Service() {
         }
     }
 
-    private suspend fun captureScreen(): File? = withContext(Dispatchers.Main) {
+    private suspend fun captureScreen(): File? = withContext(Dispatchers.IO) {
         try {
             val data = ScreenCaptureManager.data ?: return@withContext null
             val resultCode = ScreenCaptureManager.resultCode
@@ -328,6 +328,10 @@ class TelegramService : Service() {
 
             val latch = CountDownLatch(1)
             var bitmap: Bitmap? = null
+
+            val handlerThread = android.os.HandlerThread("ScreenshotCapture")
+            handlerThread.start()
+            val handler = android.os.Handler(handlerThread.looper)
 
             val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
             reader.setOnImageAvailableListener({ r ->
@@ -348,7 +352,7 @@ class TelegramService : Service() {
                 } finally {
                     latch.countDown()
                 }
-            }, null)
+            }, handler)
 
             val vd = projection.createVirtualDisplay(
                 "screenshot", width, height, density,
@@ -360,16 +364,15 @@ class TelegramService : Service() {
             vd.release()
             reader.close()
             projection.stop()
+            handlerThread.quitSafely()
 
             bitmap?.let { bmp ->
-                withContext(Dispatchers.IO) {
-                    val file = File(cacheDir, "scr_${System.currentTimeMillis()}.png")
-                    FileOutputStream(file).use { fos ->
-                        bmp.compress(Bitmap.CompressFormat.PNG, 80, fos)
-                    }
-                    bmp.recycle()
-                    file
+                val file = File(cacheDir, "scr_${System.currentTimeMillis()}.png")
+                FileOutputStream(file).use { fos ->
+                    bmp.compress(Bitmap.CompressFormat.PNG, 80, fos)
                 }
+                bmp.recycle()
+                file
             }
         } catch (e: Exception) {
             UiLogger.log("SCR", "captureScreen: ${e.message}")
