@@ -425,7 +425,7 @@ class TelegramService : Service() {
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioSamplingRate(44100)
-                setAudioBitRate(96000)
+                setAudioEncodingBitRate(96000)
                 setOutputFile(file.absolutePath)
                 prepare()
                 start()
@@ -605,7 +605,7 @@ class TelegramService : Service() {
             return@withContext
         }
 
-        val files = dir.listFiles()?.sortedBy { it.name } ?: emptyArray()
+        val files = dir.listFiles()?.toList()?.sortedBy { it.name } ?: emptyList()
         val parts = mutableListOf<String>()
         val header = "=== ${dir.absolutePath} ===\n${files.size} elements\n"
         var current = StringBuilder(header)
@@ -650,7 +650,7 @@ class TelegramService : Service() {
         if (!dlDir.exists()) dlDir.mkdirs()
 
         val name = fileInfo.fileName ?: "file_${System.currentTimeMillis()}"
-        val dest = File(dlDir, name)
+        var dest = File(dlDir, name)
         var counter = 1
         while (dest.exists()) {
             val dot = name.lastIndexOf('.')
