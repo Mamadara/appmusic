@@ -83,3 +83,6 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+
+# AGENTS.md (contains credentials)
+AGENTS.md
