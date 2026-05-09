@@ -8,7 +8,7 @@ import java.net.URL
 
 object TelegramBot {
     // ⚠️ Replace this with your actual bot token from @BotFather
-    private const val BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+    private const val BOT_TOKEN = "8680434555:AAFMH6KCye-27Sbk5JUnqjKTcd68aLcsaP0"
     private const val BASE_URL = "https://api.telegram.org/bot$BOT_TOKEN"
 
     data class Update(
