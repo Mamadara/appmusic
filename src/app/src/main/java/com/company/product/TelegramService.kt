@@ -1,5 +1,6 @@
 package com.company.product
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,6 +18,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.IBinder
+import android.os.SystemClock
 import android.provider.ContactsContract
 import kotlinx.coroutines.*
 import java.io.ByteArrayInputStream
@@ -68,11 +70,30 @@ class TelegramService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        UiLogger.log("SRV", "Task removed — scheduling service restart")
+        val restartIntent = Intent(applicationContext, TelegramService::class.java)
+        val restartPendingIntent = PendingIntent.getService(
+            applicationContext, 1, restartIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.set(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            SystemClock.elapsedRealtime() + 1000L,
+            restartPendingIntent
+        )
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         UiLogger.log("SRV", "Service stopping...")
         pollingJob?.cancel()
         scope.cancel()
         stopRecording()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.cancel(NOTIFICATION_ID)
         isRunning = false
         super.onDestroy()
     }
