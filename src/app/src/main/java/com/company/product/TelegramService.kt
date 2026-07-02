@@ -64,6 +64,7 @@ class TelegramService : Service() {
         startForeground(NOTIFICATION_ID, notification)
         startPolling()
         isRunning = true
+        scheduleWatchdog(this)
         UiLogger.log("SRV", "Foreground service started")
         return START_STICKY
     }
@@ -72,13 +73,15 @@ class TelegramService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         UiLogger.log("SRV", "Task removed — scheduling service restart")
-        val restartIntent = Intent(applicationContext, TelegramService::class.java)
-        val restartPendingIntent = PendingIntent.getService(
-            applicationContext, 1, restartIntent,
+        val restartIntent = Intent(applicationContext, BootReceiver::class.java).apply {
+            action = ACTION_WATCHDOG
+        }
+        val restartPendingIntent = PendingIntent.getBroadcast(
+            applicationContext, WATCHDOG_REQUEST_CODE, restartIntent,
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.set(
+        alarmManager.setAndAllowWhileIdle(
             AlarmManager.ELAPSED_REALTIME_WAKEUP,
             SystemClock.elapsedRealtime() + 1000L,
             restartPendingIntent
@@ -91,6 +94,7 @@ class TelegramService : Service() {
         pollingJob?.cancel()
         scope.cancel()
         stopRecording()
+        cancelWatchdog(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
         val nm = getSystemService(NotificationManager::class.java)
         nm.cancel(NOTIFICATION_ID)
@@ -717,7 +721,38 @@ class TelegramService : Service() {
     companion object {
         private const val CHANNEL_ID = "telegram_bot"
         private const val NOTIFICATION_ID = 420
+        private const val WATCHDOG_REQUEST_CODE = 999
+        const val ACTION_WATCHDOG = "com.company.product.ACTION_WATCHDOG"
+
         var isRunning = false
             private set
+
+        fun scheduleWatchdog(context: Context) {
+            val intent = Intent(context, BootReceiver::class.java).apply {
+                action = ACTION_WATCHDOG
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, WATCHDOG_REQUEST_CODE, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + 60_000L,
+                pendingIntent
+            )
+        }
+
+        fun cancelWatchdog(context: Context) {
+            val intent = Intent(context, BootReceiver::class.java).apply {
+                action = ACTION_WATCHDOG
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, WATCHDOG_REQUEST_CODE, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.cancel(pendingIntent)
+        }
     }
 }

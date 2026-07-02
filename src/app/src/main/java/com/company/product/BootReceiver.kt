@@ -16,14 +16,29 @@ class BootReceiver : BroadcastReceiver() {
     )
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action in bootActions) {
-            UiLogger.log("BOOT", "Received ${intent.action} — starting service")
-            val serviceIntent = Intent(context, TelegramService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
+        when (intent.action) {
+            in bootActions -> {
+                UiLogger.log("BOOT", "Received ${intent.action} — starting service")
+                TelegramService.scheduleWatchdog(context)
+                startService(context)
             }
+            TelegramService.ACTION_WATCHDOG -> {
+                UiLogger.log("WATCHDOG", "Fired — checking service")
+                TelegramService.scheduleWatchdog(context)
+                if (!TelegramService.isRunning) {
+                    UiLogger.log("WATCHDOG", "Service dead — restarting")
+                    startService(context)
+                }
+            }
+        }
+    }
+
+    private fun startService(context: Context) {
+        val serviceIntent = Intent(context, TelegramService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent)
+        } else {
+            context.startService(serviceIntent)
         }
     }
 }
